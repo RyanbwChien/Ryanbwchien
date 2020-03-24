@@ -1,0 +1,67 @@
+
+#用於測試不同測試模型 例如KNN 分群數 或 NN MODEL 隱藏層數/NEURON個數 SVM 不同懲罰值/GAMMA值
+#找出最適合的參數
+
+from random import seed
+from random import randrange
+from random import random
+from csv import reader
+from math import exp
+import numpy as np
+
+filepath=r'D:\Desk\R practice'
+filename='GD 測試'
+GDtest=pd.read_excel('{filepath}\{filename}.xlsx'.format(filepath=filepath,filename=filename) ) 
+
+
+def CVfold(dataset, n_folds):
+    size=np.size(dataset,0)
+    ind=np.random.choice(range(size), size, replace=False,p=None) #原始資料重新洗牌
+    setsize=int(size/n_folds)
+    datasplit=[]
+    ini=0
+    
+    if (isinstance(dataset,(pd.core.frame.DataFrame))):
+        for i in range(n_folds):
+            fold = list()
+            fold.append(dataset.iloc[ind[ini:ini+setsize],:])
+            datasplit.append(fold)
+            ini+=setsize
+        return(datasplit)
+    if (isinstance(dataset,(np.ndarray))):
+        for i in range(n_folds):
+            fold = list()
+            fold.append(dataset[ind[ini:ini+setsize],:])
+            datasplit.append(fold)
+            ini+=setsize
+        return(datasplit)
+
+# =============================================================================
+# type(GDtest)=='pandas.core.frame.DataFrame'
+# type(data)=='numpy.ndarray'
+# isinstance(GDtest,(pd.core.frame.DataFrame))
+# isinstance(data,(np.ndarray))
+# =============================================================================
+
+
+def CV(dataset,group):
+    n_folds=len(group)
+    list_train=[]
+    list_test=[]
+    for i in range(n_folds):
+        a=list(range(n_folds))
+        del a[i]
+        train_set=np.array(group)[a]
+        train_set=train_set.reshape(int(np.size(train_set)/np.size(dataset,1)),np.size(dataset,1))
+        test_set=group[i]
+        list_train.append(train_set)
+        list_test.append(test_set)
+        # 戴入藥分析的model
+    return([list_train,list_test])
+
+data=np.random.normal(10, 1,100).reshape(25,4)
+CVfold(dataset=data,n_folds=5)   
+CVfold(dataset=GDtest,n_folds=5)   
+group_set=CVfold(dataset=data,n_folds=25)
+
+A=list(np.array(group_set)[0].shape)
