@@ -1,0 +1,70 @@
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+DNA_SIZE = 10            # DNA length *****會決定生成input的大小範圍by 2進位
+POP_SIZE = 100           # population size 
+CROSS_RATE = 0.8         # mating probability (DNA crossover) 80%進行交叉配對
+MUTATION_RATE = 0.003    # mutation probability ****0.3%的突變機率將其中一個數0變1 ; 1變0
+N_GENERATIONS = 200      # 循環多少代 迴圈跑幾圈
+X_BOUND = [0, 5]         # x upper and lower bounds X軸從0~5取值
+
+
+def F(x): return np.sin(10*x)*x + np.cos(2*x)*x     # to find the maximum of this function 目標函數
+
+
+# find non-zero fitness for selection
+def get_fitness(pred): return pred + 1e-3 - np.min(pred) #(每一個位置output值-所有output值中最小值)機率是正數+一個很微小的值(讓加總!=0)
+
+# convert binary DNA to decimal and normalize it to a range(0, 5)
+def translateDNA(pop): return pop.dot(2 ** np.arange(DNA_SIZE)[::-1]) / float(2**DNA_SIZE-1) * X_BOUND[1]
+
+def select(pop, fitness):    # nature selection wrt pop's fitness
+    idx = np.random.choice(np.arange(POP_SIZE), size=POP_SIZE, replace=True,
+                           p=fitness/fitness.sum()) # 按fitness比例(fitness/總和值)來選擇適應度越高越容易被選
+    return pop[idx] # 選取index位置後再回傳母體值
+
+
+def crossover(parent, pop):     # mating process (genes crossover) 交配
+    if np.random.rand() < CROSS_RATE:
+        i_ = np.random.randint(0, POP_SIZE, size=1)                             # select another individual from pop
+        cross_points = np.random.randint(0, 2, size=DNA_SIZE).astype(np.bool)   # choose crossover points 在哪幾個DNA位置進行cross over
+        parent[cross_points] = pop[i_, cross_points]                            # mating and produce one child #True的位置換 False的位置不換
+    return parent
+
+
+def mutate(child):
+    for point in range(DNA_SIZE):  # point 是迴圈的一個標記指標
+        if np.random.rand() < MUTATION_RATE:
+            child[point] = 1 if child[point] == 0 else 0
+    return child
+
+pop = np.random.randint(2, size=(POP_SIZE, DNA_SIZE))   # initialize the pop DNA
+pop2 = np.random.randint(0,2, size=(1, DNA_SIZE)).repeat(POP_SIZE,axis=1)
+pop3 =np.repeat(np.random.randint(0,2, size=(1, DNA_SIZE)),POP_SIZE,axis=0)
+
+plt.ion()       # something about plotting
+x = np.linspace(*X_BOUND, 200) #在 np.linspace(*X_BOUND, 200) 讓電腦將X_BOUND=[0,5]視為是指起始值為0 STOP值為5 num=200
+x1 = np.linspace(X_BOUND, 200) #在 np.linspace(X_BOUND, 200) 電腦會誤認為X_BOUND=[0,5]是指起始值 200為STOP 
+plt.plot(x, F(x))
+
+for _ in range(N_GENERATIONS):
+    F_values = F(translateDNA(pop))    # compute function value by extracting DNA 把DNA變成0~5的數
+
+# =============================================================================
+#     # something about plotting
+#     if 'sca' in globals(): sca.remove()
+#     sca = plt.scatter(translateDNA(pop), F_values, s=200, lw=0, c='red', alpha=0.5); plt.pause(0.05)
+# =============================================================================
+
+    # GA part (evolution)
+    fitness = get_fitness(F_values)   # 計算適應度 適應度法則越高越好 (Y值越高越適應) 每一個位置output值-所有output值中最小值+一個很微小的值
+    print("Most fitted DNA: ", pop[np.argmax(fitness), :]) # pop[np.argmax(fitness), :] 找到fitness最大值的位置，並將回傳至母體該位置的基因序列值 (指定列&所有行)
+    pop = select(pop, fitness)        # 找出母體對應適應度
+    pop_copy = pop.copy()
+    for parent in pop:          # parent 是迴圈的一個標記指標 把母體中每一個個體的DNA (共跑POP_SIZE 100次)當作迴圈
+        child = crossover(parent, pop_copy)
+        child = mutate(child)
+        parent[:] = child       # parent is replaced by its child
+
+plt.ioff(); plt.show()
