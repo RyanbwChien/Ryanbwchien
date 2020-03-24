@@ -1,0 +1,232 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Feb 24 19:47:54 2020
+
+@author: user
+"""
+
+import numpy as np
+
+def Pool_layer_screen_location(Pool_size,image_matrix):
+    result=[]
+    image_size=int((len(image_matrix))**0.5)
+   
+    for i in range(int(image_size/Pool_size)):
+        for ii in range(int(image_size/Pool_size)):
+            for iii in range(Pool_size):
+                n11=[np.arange( 0+iii*image_size+ii*Pool_size+  (Pool_size*i*image_size) , iii*image_size+Pool_size+ii*Pool_size+  (Pool_size*i*image_size), 1) ]
+                result.append(n11)
+    return(np.array(result).reshape(int(image_size/Pool_size)**2,Pool_size**2))
+
+def Max_pooling_layer(image_matrix,Pool_size):
+    n_filter=np.size(image_matrix,1)
+    location=Pool_layer_screen_location(Pool_size,image_matrix) # MAXPOOLING後的NEURON相對應 MAXPOOLING前 INPUT 位置
+    result=[]
+    Max_location=[]
+    for i in range(n_filter):
+        for ii in location:
+            z=max(image_matrix[ii,i])
+            k=ii[np.where(image_matrix[ii,i]==z)]
+            result.append(z)
+            Max_location.append(k) # MAXPOOLING後的NEURON相對應 MAXPOOLING前 INPUT 位置的最大位置
+    return([np.array(result).reshape(-1,1).reshape(len(location),n_filter,order='F'),location,np.array(Max_location).reshape(-1,1).reshape(len(location),n_filter,order='F')])
+
+def COV_filter_screen_location(pixel_size,filter_size):
+    weight=[]
+    for i in range(pixel_size-filter_size+1):
+        for ii in range(pixel_size-filter_size+1):
+            for iii in range(filter_size):
+                n11=[np.arange(i*pixel_size+0+iii*pixel_size+ii,i*pixel_size+iii*pixel_size+filter_size+ii,1)]
+                weight.append(n11)
+    return(np.array(weight).reshape((pixel_size-filter_size+1)**2,filter_size**2))
+
+def filter_weight(filter_size,cov_filter_count,neuron_size,filter_depth):
+    weight=[]
+    temp=[[np.array([np.random.randn() for i in range(filter_size**2)]).reshape(1,filter_size**2).repeat(neuron_size,axis=0) for j in range(filter_depth)] for k in range(cov_filter_count)]
+    weight.append(temp)
+    return(weight[0])
+
+def Relu(x):
+    z=[max(0,i) for i in x]
+    return(z)
+
+
+def activity(image_matrix):
+    n_filter=np.size(image_matrix,1)
+    n_neuron=np.size(image_matrix,0)
+    result=[]
+    for i in range(n_filter):
+        result.append(Relu(image_matrix[:,i]))
+    return(np.array(result).reshape(-1,1).reshape(n_neuron,n_filter,order='F'))
+
+def CNN_cov_result(pixel_size,filter_size, photo,cov_filter_count):
+    filter_depth=np.size(photo,1)
+    neuron_size=(pixel_size-filter_size+1)**2
+    first_cov_layer=COV_filter_screen_location(pixel_size,filter_size)
+    first_cov_filter_weight=np.array(filter_weight(filter_size,cov_filter_count,neuron_size,filter_depth))
+    product=[]
+    for ii in range(cov_filter_count):          #fiter count
+        for i in range(len(first_cov_layer)):   #fiter neuron
+            for iii in range( np.size(photo,1)):#fiter depth
+                if iii==0:
+                    sumd=first_cov_filter_weight[ii,iii,i,:].dot(photo[:,iii][first_cov_layer[i]])
+                else:
+                    sumd+=first_cov_filter_weight[ii,iii,i,:].dot(photo[:,iii][first_cov_layer[i]])
+            product.append(sumd)
+    return([np.array(product).reshape(len(first_cov_layer),cov_filter_count),
+            first_cov_filter_weight,
+            first_cov_layer])
+
+def last_to_next_neuron(link):
+    srr={}
+    for ii in range(np.max(link)+1):
+        for i in range(len(link)):
+            if ii in link[i,:]:
+                srr.setdefault(ii, [])
+                srr[ii].append(i)
+    return(srr)
+
+def last_to_filterweight(link):
+    srr={}
+    for ii in range(np.max(link)+1):
+        for i in range(len(link)):
+            if ii in link[i,:]:
+                srr.setdefault(ii, [])
+                srr[ii].append(np.where(link[i,:]==ii)[0][0])
+    return(srr)
+
+def Cur_to_last(link):
+    srr={}
+    for ii in range(np.max(link)+1):
+        for i in range(len(link)):
+            if ii in link[i,:]:
+                srr.setdefault(i, [])
+                srr[i].append(ii)
+    return(srr)
+
+def Bp_Relu(reluoutput):
+    srr=np.empty((np.size(reluoutput,0),np.size(reluoutput,1)))
+    
+    for ii in range(np.size(reluoutput,1)):
+        for i in range(np.size(reluoutput,0)):
+            if reluoutput[i,ii]==0:
+                srr[i,ii]=0
+            else:
+                srr[i,ii]=1
+    return(srr)
+
+def Bp_maxpooling(max_poolin_result):
+    Befor_Max_pooling_input_location=max_poolin_result[2]
+    BP_after_maxpooling_result=max_poolin_result[0]
+    Last_pixel_size=np.size(max_poolin_result[1])
+    Last_pixel_thk=np.size(max_poolin_result[0],1)
+    s=np.zeros((Last_pixel_size,Last_pixel_thk),dtype=int)
+    for i in range(Last_pixel_thk): # Pooling後 pixel 的厚度=Pooling前 pixel 的厚度
+        count=0
+        for j in Befor_Max_pooling_input_location[:,i]:
+            s[j,i]=1*BP_after_maxpooling_result[count,i] # Pooling後 pixel NEURON結果*1=給相對應 Pooling前 pixel NEURON的位置
+            count+=1
+    return(s)
+
+def dL_div_weight(cur_neuron_location_to_last_input,cur_BP_result,last_output,COV_layer_weight):
+    # 對前一層參數微分 求倒函數
+    Bp=Cur_to_last(cur_neuron_location_to_last_input)
+    row=cur_neuron_location_to_last_input.shape[0]
+    col=cur_neuron_location_to_last_input.shape[1]
+    cur_filter_count=cur_BP_result.shape[1]
+    last_filter_count=last_output.shape[1]
+    temp=np.empty((cur_filter_count,last_filter_count,row,col))
+    temp2=[]
+    for k in range(cur_filter_count):
+        for l in range(last_filter_count):
+            for i in range(row):
+                for j in range(col):
+                    temp[k,l,i,j]=cur_BP_result[i,k]* last_output[:,l][Bp[i][j]]
+                    #後BP乘前面的OUTPUT
+    for k in range(temp.shape[0]):
+        for l in range(temp.shape[1]):
+            temp2.append(np.mean(temp[k,l,:,:], axis=0))
+            # 得到 上一層厚度 * 下一層FILTER個數 每一個各下一層FILTER的SIZE
+    np.array(temp2).shape
+    temp3=[]
+    for i in range(len(temp2)):
+       for ii in range(COV_layer_weight.shape[2]): # 任一FILTER 任一厚度 重複下一層NEURON的數量
+           temp3.append(temp2[i])
+    temp3=np.array(temp3).reshape(COV_layer_weight.shape) #將WEIGHT展開乘FP SIZE一樣
+    return(temp3)
+
+# BPvalue_to _dcurz_div_dlasta
+def BPvalue_to_dcurz_div_dlasta(cur_neuron_location_to_last_input,cur_BP_result,last_output,COV_layer_weight):
+    # 乘前一層參數 求倒函數對前一層 a 倒函數
+    lo=last_to_next_neuron(cur_neuron_location_to_last_input) # 前一層NEURON 對應下一層 NEURON位置
+    welo=last_to_filterweight(cur_neuron_location_to_last_input) # 前一層NEURON 對應下一層 NEURON位置之相對應FILTER參數位置
+    last_pixel_depth=last_output.shape[1]
+    cur_pixel_depth=cur_BP_result.shape[1]
+    last_div=np.empty((len(lo),last_pixel_depth))
+    sums=0
+    for l in range(last_pixel_depth):
+        sums=0
+        for j in  range(len(lo)):
+            for k in range(cur_pixel_depth):#將BP每一深度各位置NEURON 相乘加總後 給前一層NEURON的位置(ALL 深度)
+                sums+=np.sum(cur_BP_result[lo[j],k]* COV_layer_weight[k,l,lo[j],welo[j]])
+                #前一層NEURON的位置 =相對應  後BP NEURON位置乘 相對應的FILTER weight位置 加總
+                #前一層 第2 NEURON的位置= 下一BP第1 NEURON 位置 * FILTER 第2 weight位置+ 下一BP第2位置 * FILTER 第2 weight位置
+            last_div[j,l]=sums
+    return(last_div)
+
+# Generator data and setting model
+ww=np.arange(0,9,1)
+photo=np.arange(0,30*30*3,1).reshape(30*30,3) # 共一個FILTER厚度是3
+pixel_size=int(len(photo)**0.5)
+filter_size=3
+cov_filter_count=5
+
+# CNN_Forward propagation
+def CNN_Forward_propagation(pixel_size,filter_size, photo,cov_filter_count,Pool_size):
+    CNN_Forward_result=[]
+    first_Feature_map=CNN_cov_result(pixel_size,filter_size, photo,cov_filter_count)
+    CNN_Forward_result.append(first_Feature_map)
+    reluoutput=activity(first_Feature_map[0])
+    CNN_Forward_result.append(reluoutput)
+    #reluoutput.shape
+    max_poolin_result=Max_pooling_layer(reluoutput,Pool_size)
+    CNN_Forward_result.append(max_poolin_result)
+    return(CNN_Forward_result)
+
+def add_flatten(last_CNN_maxpooling_result):
+    flatten_result=last_CNN_maxpooling_result.reshape(np.size(last_CNN_maxpooling_result),1,order='F')
+    return(flatten_result)
+
+def fully_connect(model):
+    ## Fully_connect (DNN)
+    DNN_model=[]
+    DNN_model.append(initialize_network(len(model[2]), len(model[2]))[0])
+    DNN_model.append(initialize_network_output(len(model[2]), 5)[0])
+    pass
+
+#Forward propagtion result
+model=[]
+model.append(CNN_Forward_propagation(pixel_size,filter_size, photo,cov_filter_count,Pool_size=2))
+model.append(CNN_Forward_propagation(pixel_size=int(len(model[0][2][0])**0.5),filter_size=3, photo=model[0][2][0],cov_filter_count=2,Pool_size=2))
+model.append(add_flatten(last_CNN_maxpooling_result=model[1][2][0]))
+
+
+# CNN_Backward propagation
+def CNN_Backward_propagation(model):
+    # CNN_Backward propagation
+    grad_eachconv_filterweight= list() 
+    Bp_maxpooling_result=Bp_maxpooling(model[1][2])
+    Bp_Relu_result=Bp_Relu(model[1][1])
+    BP_after_conv=Bp_maxpooling_result*Bp_Relu_result
+    cur_neuron_location_to_last_input=model[1][0][2]
+    cur_BP_result=BP_after_conv
+    last_output=model[0][2][0]
+    COV_layer_weight=model[1][0][1]
+    BP_before_conv=BPvalue_to_dcurz_div_dlasta(cur_neuron_location_to_last_input,cur_BP_result,last_output,COV_layer_weight)
+    filterweight=dL_div_weight(cur_neuron_location_to_last_input,cur_BP_result,last_output,COV_layer_weight)
+    grad_eachconv_filterweight.append(filterweight)
+    return(filterweight)
+
+grad_eachconv_filterweight=CNN_Backward_propagation(model)
+
+
