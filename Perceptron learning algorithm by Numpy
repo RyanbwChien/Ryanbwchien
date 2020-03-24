@@ -1,0 +1,44 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Sat Feb  8 02:23:57 2020
+
+@author: user
+"""
+
+# Only for Linear separable
+
+def PLA(X,y):   
+    #Importing the libraries
+    import numpy as np
+ 
+    #central=np.zeros(np.size(X,1))
+    central=np.mean(X, axis=0)
+    ind=np.random.choice(range(len(X)), 1, replace=False)[0]
+    w=X[ind,:]-central
+    error=0
+    wtotal=np.array([None,None])
+    while True:
+        for i in range(len(X)):
+            if np.sign(w.T.dot((X[i,:]-central))) != y[i]: #有分類錯誤才更新參數
+                w += y[i] * (X[i,:]-central)
+                error+=1
+                if error==1:
+                    break
+        wtotal=np.append(wtotal,w)
+        if error==0:
+            break
+        else:
+            error=0
+
+    wtotal=wtotal.reshape((int(len(wtotal)/2),2))
+    wtotal=np.delete(wtotal,0,axis=0)
+
+    c=w.T.dot(central)
+    a=w[0]
+    b=w[1]
+
+    grid_x=np.arange(min(X[:,0]),max(X[:,0]),step=0.1)
+    pred_y=c/b+(-a)/b*grid_x
+
+    return({'w':w,'wtotal':wtotal,'grid_x':grid_x,'pred_y':pred_y})
+    
