@@ -6,7 +6,7 @@ DNA_SIZE = 10            # DNA length *****會決定生成input的大小範圍by
 POP_SIZE = 100           # population size 
 CROSS_RATE = 0.8         # mating probability (DNA crossover) 80%進行交叉配對
 MUTATION_RATE = 0.003    # mutation probability ****0.3%的突變機率將其中一個數0變1 ; 1變0
-N_GENERATIONS = 200      # 循環多少代 迴圈跑幾圈
+N_GENERATIONS = 200      # 循環多少代 迴圈圈數()
 X_BOUND = [0, 5]         # x upper and lower bounds X軸從0~5取值
 
 
@@ -51,18 +51,12 @@ plt.plot(x, F(x))
 for _ in range(N_GENERATIONS):
     F_values = F(translateDNA(pop))    # compute function value by extracting DNA 把DNA變成0~5的數
 
-# =============================================================================
-#     # something about plotting
-#     if 'sca' in globals(): sca.remove()
-#     sca = plt.scatter(translateDNA(pop), F_values, s=200, lw=0, c='red', alpha=0.5); plt.pause(0.05)
-# =============================================================================
-
     # GA part (evolution)
     fitness = get_fitness(F_values)   # 計算適應度 適應度法則越高越好 (Y值越高越適應) 每一個位置output值-所有output值中最小值+一個很微小的值
     print("Most fitted DNA: ", pop[np.argmax(fitness), :]) # pop[np.argmax(fitness), :] 找到fitness最大值的位置，並將回傳至母體該位置的基因序列值 (指定列&所有行)
     pop = select(pop, fitness)        # 找出母體對應適應度
     pop_copy = pop.copy()
-    for parent in pop:          # parent 是迴圈的一個標記指標 把母體中每一個個體的DNA (共跑POP_SIZE 100次)當作迴圈
+    for parent in pop:          # parent 是迴圈的一個標記指標 每一次迴圈 把母體中每一個個體的DNA (共100個)做各做一次交配/突變 共做當作N_GENERATIONS次
         child = crossover(parent, pop_copy)
         child = mutate(child)
         parent[:] = child       # parent is replaced by its child
