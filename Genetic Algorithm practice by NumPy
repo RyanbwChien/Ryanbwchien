@@ -40,17 +40,18 @@ def mutate(child):
     return child
 
 pop = np.random.randint(2, size=(POP_SIZE, DNA_SIZE))   # initialize the pop DNA
-pop2 = np.random.randint(0,2, size=(1, DNA_SIZE)).repeat(POP_SIZE,axis=1)
-pop3 =np.repeat(np.random.randint(0,2, size=(1, DNA_SIZE)),POP_SIZE,axis=0)
 
 plt.ion()       # something about plotting
-x = np.linspace(*X_BOUND, 200) #在 np.linspace(*X_BOUND, 200) 讓電腦將X_BOUND=[0,5]視為是指起始值為0 STOP值為5 num=200
-x1 = np.linspace(X_BOUND, 200) #在 np.linspace(X_BOUND, 200) 電腦會誤認為X_BOUND=[0,5]是指起始值 200為STOP 
+x = np.linspace(*X_BOUND, 200) #在 np.linspace(*X_BOUND, 200) 將X_BOUND=[0,5]視為是指起始值為0 STOP值為5 num=200
 plt.plot(x, F(x))
 
 for _ in range(N_GENERATIONS):
     F_values = F(translateDNA(pop))    # compute function value by extracting DNA 把DNA變成0~5的數
-
+    
+    # something about plotting
+    if 'sca' in globals(): sca.remove()
+    sca = plt.scatter(translateDNA(pop), F_values, s=200, lw=0, c='red', alpha=0.5); plt.pause(0.05)
+    
     # GA part (evolution)
     fitness = get_fitness(F_values)   # 計算適應度 適應度法則越高越好 (Y值越高越適應) 每一個位置output值-所有output值中最小值+一個很微小的值
     print("Most fitted DNA: ", pop[np.argmax(fitness), :]) # pop[np.argmax(fitness), :] 找到fitness最大值的位置，並將回傳至母體該位置的基因序列值 (指定列&所有行)
@@ -60,5 +61,6 @@ for _ in range(N_GENERATIONS):
         child = crossover(parent, pop_copy)
         child = mutate(child)
         parent[:] = child       # parent is replaced by its child
+
 
 plt.ioff(); plt.show()
